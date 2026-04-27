@@ -216,8 +216,10 @@ from zenml.models import (
     UserResponse,
     UserUpdate,
 )
-from zenml.utils import dict_utils, io_utils, source_utils, tag_utils
-from zenml.utils.dict_utils import dict_to_bytes
+from zenml.utils.tag_utils import Tag
+from zenml.utils.source_utils import load_and_validate_class
+from zenml.utils.io_utils import create_dir_recursive_if_not_exists, is_root
+from zenml.utils.dict_utils import dict_to_bytes, remove_none_values
 from zenml.utils.filesync_model import FileSyncModel
 from zenml.utils.pagination_utils import depaginate
 from zenml.utils.uuid_utils import is_valid_uuid
@@ -544,7 +546,7 @@ class Client(metaclass=ClientMetaClass):
             )
 
         config_directory = str(root / REPOSITORY_DIRECTORY_NAME)
-        io_utils.create_dir_recursive_if_not_exists(config_directory)
+        create_dir_recursive_if_not_exists(config_directory)
         # Initialize the repository configuration at the custom path
         Client(root=root)
 
@@ -634,7 +636,7 @@ class Client(metaclass=ClientMetaClass):
             if Client.is_repository_directory(path_):
                 return path_
 
-            if not search_parent_directories or io_utils.is_root(str(path_)):
+            if not search_parent_directories or is_root(str(path_)):
                 return None
 
             return _find_repository_helper(path_.parent)
@@ -1453,7 +1455,7 @@ class Client(metaclass=ClientMetaClass):
                 **stack.environment,
                 **environment,
             }
-            environment = dict_utils.remove_none_values(environment)
+            environment = remove_none_values(environment)
             update_model.environment = environment
 
         updated_stack = self.zen_store.update_stack(
@@ -2228,7 +2230,7 @@ class Client(metaclass=ClientMetaClass):
                 **component.environment,
                 **environment,
             }
-            environment = dict_utils.remove_none_values(environment)
+            environment = remove_none_values(environment)
             update_model.environment = environment
 
         # Send the updated component to the ZenStore
@@ -6484,10 +6486,8 @@ class Client(metaclass=ClientMetaClass):
         """
         from zenml.code_repositories import BaseCodeRepository
 
-        code_repo_class: Type[BaseCodeRepository] = (
-            source_utils.load_and_validate_class(
-                source=source, expected_class=BaseCodeRepository
-            )
+        code_repo_class: Type[BaseCodeRepository] = load_and_validate_class(
+            source=source, expected_class=BaseCodeRepository
         )
         try:
             code_repo_class.validate_config(config)
@@ -9182,7 +9182,7 @@ class Client(metaclass=ClientMetaClass):
 
     def attach_tag(
         self,
-        tag: Union[str, tag_utils.Tag],
+        tag: Union[str, Tag],
         resources: List[TagResource],
     ) -> None:
         """Attach a tag to resources.
@@ -9209,7 +9209,7 @@ class Client(metaclass=ClientMetaClass):
                 tag_name_or_id=tag_request.name, allow_name_prefix_match=False
             )
 
-        if isinstance(tag, tag_utils.Tag):
+        if isinstance(tag, Tag):
             if bool(tag.exclusive) != tag_model.exclusive:
                 raise ValueError(
                     f"The tag `{tag.name}` is "
